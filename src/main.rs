@@ -1,10 +1,14 @@
 use regex::Regex;
-// use reqwest::Url;
 use std::error::Error;
-// use chrono::Local;
+use chrono::Local;
 
 
 async fn query_algolia(parsed_query: &str) -> Result<(), Box<dyn Error>> {
+    let re = Regex::new(r#"https://hasura.io/docs/latest/([^/]*)"#).unwrap();
+    let parsed_query = re.captures(parsed_query).unwrap().get(1).unwrap().as_str();
+
+    println!("{}", parsed_query);
+
     // take parsed_query and brake it into words with %20 in between them
     let parsed_query = parsed_query.replace("/", "%20")
     .replace("-", "%20")
@@ -41,6 +45,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     # DOCS Redirect ({{today}})
     ##################################################################
     "#;
+
+    println!("{}", date_header.replace("{{today}}", &today));
 
 
     for arg in args.iter().skip(1) {
