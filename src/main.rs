@@ -34,13 +34,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // command line args
     let args: Vec<String> = std::env::args().collect();
     // today's date in MM-DD-YYYY format
-    let today = Local::now().format("%m-%d-%Y").to_string();
+    let today = Local::now().format("%m/%d/%Y").to_string();
 
-    let header = r#"
+    let date_header = r#"
     ##################################################################
-    # DOCS 404s: ({})
+    # DOCS Redirect ({{today}})
     ##################################################################
-    "#, today;
+    "#;
 
 
     for arg in args.iter().skip(1) {
