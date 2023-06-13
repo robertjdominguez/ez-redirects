@@ -4,10 +4,10 @@ use chrono::Local;
 
 
 async fn query_algolia(parsed_query: &str) -> Result<(), Box<dyn Error>> {
-    let re = Regex::new(r#"https://hasura.io/docs/latest/([^/]*)"#).unwrap();
-    let parsed_query = re.captures(parsed_query).unwrap().get(1).unwrap().as_str();
-
-    println!("{}", parsed_query);
+    // regex to remove https://hasura.io/docs/latest/ from parsed_query
+    let re = Regex::new(r#"https://hasura.io/docs/latest/"#).unwrap();
+    let parsed_query = re.replace_all(parsed_query, "");
+    print!("{}", parsed_query);
 
     // take parsed_query and brake it into words with %20 in between them
     let parsed_query = parsed_query.replace("/", "%20")
@@ -42,9 +42,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let date_header = r#"
     ##################################################################
-    # DOCS Redirect ({{today}})
+    # DOCS Redirects ({{today}})
     ##################################################################
     "#;
+
 
     println!("{}", date_header.replace("{{today}}", &today));
 
