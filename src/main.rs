@@ -2,7 +2,7 @@ use regex::Regex;
 use std::error::Error;
 use chrono::Local;
 
-async fn query_algolia(parsed_query: &str) {
+async fn query_algolia(parsed_query: &str) -> Result<String, Box<dyn Error>> {
     // regex to remove https://hasura.io/docs/latest/ from parsed_query
     let re = Regex::new(r#"https://hasura.io/docs/latest/"#).unwrap();
     let parsed_query = re.replace_all(parsed_query, "");
@@ -15,7 +15,7 @@ async fn query_algolia(parsed_query: &str) {
     // query and request
     let query: String = format!("{{ \"params\": \"query={}\" }}", parsed_query);
     let resp = reqwest::Client::new()
-        .post("<https://NS6GBGYACO-dsn.algolia.net/1/indexes/hasura-graphql/query>")
+        .post("https://NS6GBGYACO-dsn.algolia.net/1/indexes/hasura-graphql/query")
         .header("X-Algolia-API-Key", "8f0f11e3241b59574c5dd32af09acdc8")
         .header("X-Algolia-Application-Id", "NS6GBGYACO")
         .body(query);
@@ -27,8 +27,7 @@ async fn query_algolia(parsed_query: &str) {
     let url = re.captures(&body).unwrap().get(1).unwrap().as_str();
     println!("{}", url);
 
-    
-    return url;
+    Ok(url.to_string())
 
 
 }
@@ -50,8 +49,10 @@ async fn main() {
 
     println!("{}", date_header.replace("{{today}}", &today));
 
-
     for arg in args.iter().skip(1) {
-        let _ = query_algolia(arg).await;
+        match query_algolia(arg).await {
+            Ok(url) => println!("{}", url),
+            Err(e) => println!("Error: {}", e),
+        }
     }
 }
