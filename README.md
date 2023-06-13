@@ -31,7 +31,7 @@ cargo build
 Then, you can run the following command to run the binary:
 
 ```bash
-cargo run -- <arguments>
+cargo run  <arguments>
 ```
 
 Each `<argument>` is a **full** url from the docs site. Running the program will look like this:

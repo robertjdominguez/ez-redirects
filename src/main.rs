@@ -3,16 +3,16 @@ use std::error::Error;
 use chrono::Local;
 
 async fn query_algolia(parsed_query: &str) -> Result<String, Box<dyn Error>> {
-    // regex to remove https://hasura.io/docs/latest/ from parsed_query
+    // we'll use some regex to remove https://hasura.io/docs/latest/ from parsed_query
     let re = Regex::new(r#"https://hasura.io/docs/latest/"#).unwrap();
     let parsed_query = re.replace_all(parsed_query, "");
 
-    // take parsed_query and brake it into words with %20 in between them
+    // then, we'll take the parsed_query and break it into a nice urlEncoded format
     let sent_parsed_query = parsed_query.replace("/", "%20")
     .replace("-", "%20")
     .replace("#", "%20");
 
-    // query and request
+    // we'll make the actual request
     let query: String = format!("{{ \"params\": \"query={}\" }}", sent_parsed_query);
     let resp = reqwest::Client::new()
         .post("https://NS6GBGYACO-dsn.algolia.net/1/indexes/hasura-graphql/query")
@@ -22,15 +22,15 @@ async fn query_algolia(parsed_query: &str) -> Result<String, Box<dyn Error>> {
     let resp = resp.send().await?;
     let body = resp.text().await?;
 
-    // from body, get hits[0].url
+    // from body, get hits[0].url which is the meat of the json we want
     let re = Regex::new(r#""url":"([^"]*)""#).unwrap();
     let url = re.captures(&body).unwrap().get(1).unwrap().as_str();
 
-    // strip the url of https://hasura.io/ off
+    // strip the url of https://hasura.io/ becaus the redirect doesn't want it
     let re = Regex::new(r#"https://hasura.io/"#).unwrap();
     let url = re.replace_all(url, "");
 
-    // if url has an anchor tag in it, remove the final /
+    // if url has an anchor tag in it, remove the final / to make sure we render the correct part of the page
     let re = Regex::new(r#"\/$"#).unwrap();
     let url = re.replace_all(&url, "");
 
