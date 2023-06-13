@@ -8,12 +8,12 @@ async fn query_algolia(parsed_query: &str) -> Result<String, Box<dyn Error>> {
     let parsed_query = re.replace_all(parsed_query, "");
 
     // take parsed_query and brake it into words with %20 in between them
-    let parsed_query = parsed_query.replace("/", "%20")
+    let sent_parsed_query = parsed_query.replace("/", "%20")
     .replace("-", "%20")
     .replace("#", "%20");
 
     // query and request
-    let query: String = format!("{{ \"params\": \"query={}\" }}", parsed_query);
+    let query: String = format!("{{ \"params\": \"query={}\" }}", sent_parsed_query);
     let resp = reqwest::Client::new()
         .post("https://NS6GBGYACO-dsn.algolia.net/1/indexes/hasura-graphql/query")
         .header("X-Algolia-API-Key", "8f0f11e3241b59574c5dd32af09acdc8")
@@ -25,9 +25,28 @@ async fn query_algolia(parsed_query: &str) -> Result<String, Box<dyn Error>> {
     // from body, get hits[0].url
     let re = Regex::new(r#""url":"([^"]*)""#).unwrap();
     let url = re.captures(&body).unwrap().get(1).unwrap().as_str();
-    println!("{}", url);
 
-    Ok(url.to_string())
+    // strip the url of https://hasura.io/ off
+    let re = Regex::new(r#"https://hasura.io/"#).unwrap();
+    let url = re.replace_all(url, "");
+
+    // if url has an anchor tag in it, remove the final /
+    let re = Regex::new(r#"\/$"#).unwrap();
+    let url = re.replace_all(&url, "");
+
+    
+    let nginx_config = r#"
+    # TEST ME: https://hasura.io/docs/latest/{{new_path}}/
+    location = /docs/latest/{{old_path}} {
+        return 301 https://$host/docs/latest/{{new_path}}/;
+    }
+    "#;
+
+    let config = nginx_config
+        .replace("{{old_path}}", &parsed_query.to_string())
+        .replace("{{new_path}}", &url.to_string());
+
+    Ok(config.to_string())
 
 
 }
