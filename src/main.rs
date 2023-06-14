@@ -4,7 +4,7 @@ use chrono::Local;
 
 async fn query_algolia(parsed_query: &str) -> Result<String, Box<dyn Error>> {
     // we'll use some regex to remove https://hasura.io/docs/latest/ from parsed_query
-    let re = Regex::new(r#"https://hasura.io/docs/latest/"#).unwrap();
+    let re = Regex::new(r#"/docs/latest/"#).unwrap();
     let parsed_query = re.replace_all(parsed_query, "");
 
     // then, we'll take the parsed_query and break it into a nice urlEncoded format

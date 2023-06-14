@@ -34,10 +34,10 @@ Then, you can run the following command to run the binary:
 cargo run  <arguments>
 ```
 
-Each `<argument>` is a **full** url from the docs site. Running the program will look like this:
+Each `<argument>` is a relative path from the docs site. Running the program will look like this:
 
 ```bash
-cargo run https://hasura.io/docs/latest/nested/upserts https://hasura.io/docs/latest/enterprise/prometheus https://hasura.io/docs/latest/queries/arguments
+cargo run /docs/latest/nested/upserts /docs/latest/enterprise/prometheus /docs/latest/queries/arguments
 
     Finished dev [unoptimized + debuginfo] target(s) in 0.06s
      Running `target/debug/ez-redirects 'https://hasura.io/docs/latest/nested/upserts' 'https://hasura.io/docs/latest/enterprise/prometheus' 'https://hasura.io/docs/latest/queries/arguments'`
