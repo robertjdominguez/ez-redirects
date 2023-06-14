@@ -1,6 +1,7 @@
 use regex::Regex;
 use std::error::Error;
 use chrono::Local;
+use arboard::Clipboard;
 
 async fn query_algolia(parsed_query: &str) -> Result<String, Box<dyn Error>> {
     // we'll use some regex to remove https://hasura.io/docs/latest/ from parsed_query
@@ -35,12 +36,12 @@ async fn query_algolia(parsed_query: &str) -> Result<String, Box<dyn Error>> {
     let url = re.replace_all(&url, "");
 
     
-    let nginx_config = r#"
-    # TEST ME: https://hasura.io/{{new_path}}
-    location = /docs/latest/{{old_path}} {
-        return 301 https://$host/{{new_path}};
-    }
-    "#;
+let nginx_config = r#"
+# TEST ME: https://hasura.io/{{new_path}}
+location = /docs/latest/{{old_path}} {
+    return 301 https://$host/{{new_path}};
+}
+"#;
 
     let config = nginx_config
         .replace("{{old_path}}", &parsed_query.to_string())
@@ -58,20 +59,33 @@ async fn main() {
     let args: Vec<String> = std::env::args().collect();
     // today's date in MM-DD-YYYY format
     let today = Local::now().format("%m/%d/%Y").to_string();
+    // we'll "init" the clipboard
+    let mut clipboard = Clipboard::new().unwrap();
+    // we'll create an empty string to hold the final config and redirects
+    let mut config = String::new();
 
-    let date_header = r#"
-    ##################################################################
-    # DOCS Redirects ({{today}})
-    ##################################################################
-    "#;
+let date_header = r#"
+##################################################################
+# DOCS Redirects ({{today}})
+##################################################################
+"#;
+
+    // put that sucker at the top
+    config.push_str(&date_header.replace("{{today}}", &today));
 
 
     println!("{}", date_header.replace("{{today}}", &today));
 
     for arg in args.iter().skip(1) {
         match query_algolia(arg).await {
-            Ok(url) => println!("{}", url),
+            Ok(url) => {
+                println!("{}", url);
+                config.push_str(&url);
+            },
             Err(e) => println!("Error: {}", e),
         }
     }
+
+    // put it on the clipboard to fulfill my laziness
+    clipboard.set_text(config).unwrap();
 }
