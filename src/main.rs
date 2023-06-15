@@ -56,7 +56,7 @@ location = /docs/latest/{{old_path}} {
 
 #[tokio::main]
 
-async fn main() {
+async fn main() -> Result<(), std::io::Error> {
     // command line args
     let args: Vec<String> = std::env::args().collect();
     // today's date in MM-DD-YYYY format
@@ -80,7 +80,7 @@ let date_header = r#"
         match query_algolia(arg).await {
             Ok(url) => {
                 println!("✅ -> {}", arg);
-                &config.push_str(&url);
+                let _ = &config.push_str(&url);
             },
             Err(e) => println!("Error: {}", e),
         }
@@ -129,7 +129,7 @@ let date_header = r#"
     let nginx_config = nginx_config.to_string();
 
     // open redirects.conf and write nginx_config to it
-    fs::write("redirects.conf", nginx_config);
+    let _ = fs::write("redirects.conf", nginx_config).expect("Unable to write file");
 
     // open the file in code
     let _output = Command::new("code")
@@ -138,6 +138,6 @@ let date_header = r#"
         .output()
         .expect("failed to execute process");
 
-
+    Ok(())
 
 }
