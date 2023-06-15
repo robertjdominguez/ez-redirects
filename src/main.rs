@@ -29,7 +29,7 @@ async fn query_algolia(parsed_query: &str) -> Result<String, Box<dyn Error>> {
     let re = Regex::new(r#""url":"([^"]*)""#).unwrap();
     let url = re.captures(&body).unwrap().get(1).unwrap().as_str();
 
-    // strip the url of https://hasura.io/ becaus the redirect doesn't want it
+    // strip the url of https://hasura.io/ because the redirect doesn't want it
     let re = Regex::new(r#"https://hasura.io/"#).unwrap();
     let url = re.replace_all(url, "");
 
@@ -38,12 +38,12 @@ async fn query_algolia(parsed_query: &str) -> Result<String, Box<dyn Error>> {
     let url = re.replace_all(&url, "");
 
     
-let nginx_config = r#"
+let nginx_config = r"
 # TEST ME: https://hasura.io/{{new_path}}
 location = /docs/latest/{{old_path}} {
-    return 301 https://$host/{{new_path}};
+    return 301 https://\\$host/{{new_path}};
 }
-"#;
+";
 
     let config = nginx_config
         .replace("{{old_path}}", &parsed_query.to_string())
@@ -89,26 +89,21 @@ let date_header = r#"
     let path = "../../hasura.io/redirects";
     env::set_current_dir(path).unwrap();
     let nginx_config = fs::read_to_string("redirects.conf").unwrap();
-    // println!("{}", nginx_config);
 
-    // git checkout master
+    // get master
     let _output = Command::new("git")
         .arg("checkout")
         .arg("master")
         .output()
         .expect("failed to execute process");
 
-    // println!("{}", String::from_utf8_lossy(&output.stdout));
-
-    // git pull
+    // let's pull
     let _output = Command::new("git")
         .arg("pull")
         .output()
         .expect("failed to execute process");
 
-    // println!("{}", String::from_utf8_lossy(&output.stdout));
-
-    // git checkout -b rob/docs/docs-redirects-{{today}}
+    // then make a branch
     let _output = Command::new("git")
         .arg("checkout")
         .arg("-b")
@@ -116,20 +111,22 @@ let date_header = r#"
         .output()
         .expect("failed to execute process");
 
-    // println!("{}", String::from_utf8_lossy(&output.stdout));
-
-    // add two blank lines to the config variable
+    // add two blank lines to the config variable and re-include our target string
     let final_config = format!("{}\n\n##################################################################\n\nlocation ~ ^/docs/latest/(.*)\\.html$ {{", &config);
+
+    // ! Up until this point, $host appears in each redirect
 
     // find this string in the nginx_config variable: location ~ ^/docs/latest/(.*)\.html$ {
     // and insert config string in its place
     let re = Regex::new(r#"#+\s+location ~ \^/docs/latest/\(\.\*\)\\\.html\$ \{"#).unwrap();
-    let nginx_config = re.replace_all(&nginx_config, &final_config);
+    let redir_config = re.replace(&nginx_config, &final_config);
+    // ! This is where we lose $host in the config
     // convert nginx_config to a string
-    let nginx_config = nginx_config.to_string();
+    let redir_config = redir_config.to_string();
 
+    
     // open redirects.conf and write nginx_config to it
-    let _ = fs::write("redirects.conf", nginx_config).expect("Unable to write file");
+    let _ = fs::write("redirects.conf", redir_config).expect("Unable to write file");
 
     // open the file in code
     let _output = Command::new("code")
