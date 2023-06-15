@@ -38,32 +38,20 @@ Each `<argument>` is a relative path from the docs site. Running the program wil
 
 ```bash
 cargo run /docs/latest/nested/upserts /docs/latest/enterprise/prometheus /docs/latest/queries/arguments
+##################################################################
+# DOCS Redirects (06/13/2023)
+##################################################################
 
-    Finished dev [unoptimized + debuginfo] target(s) in 0.06s
-     Running `target/debug/ez-redirects 'https://hasura.io/docs/latest/nested/upserts' 'https://hasura.io/docs/latest/enterprise/prometheus' 'https://hasura.io/docs/latest/queries/arguments'`
-
-    ##################################################################
-    # DOCS Redirects (06/13/2023)
-    ##################################################################
-
-
-    # TEST ME: https://hasura.io/docs/latest/mutations/postgres/upsert/#upsert-in-nested-mutations
-    location = /docs/latest/nested/upserts {
-        return 301 https://$host/docs/latest/mutations/postgres/upsert/#upsert-in-nested-mutations;
-    }
-
-
-    # TEST ME: https://hasura.io/docs/latest/enterprise/metrics
-    location = /docs/latest/enterprise/prometheus {
-        return 301 https://$host/docs/latest/enterprise/metrics;
-    }
-
-
-    # TEST ME: https://hasura.io/docs/latest/queries/postgres/multiple-arguments
-    location = /docs/latest/queries/arguments {
-        return 301 https://$host/docs/latest/queries/postgres/multiple-arguments;
-    }
+✅ -> /docs/latest/nested/upserts
+✅ -> /docs/latest/enterprise/prometheus
+✅ -> /docs/latest/restified/overview/+/
+✅ -> /docs/latest/queries/arguments
 ```
+
+After this output, behind the scenes, the program will create a new branch on `hasura/hasura.io`, add the redirects to
+the bottom of the DOCS `404` redirects section of `/redirects/redirects.conf`, and open VS Code.
+
+You can then quickly navigate to them by grepping for the date in MM/DD/YYYY format, test them, and commit them.
 
 ## What's next?
 
