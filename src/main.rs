@@ -1,7 +1,9 @@
 use regex::Regex;
+use std::env;
+use std::fs;
 use std::error::Error;
+use std::process::Command;
 use chrono::Local;
-use arboard::Clipboard;
 
 async fn query_algolia(parsed_query: &str) -> Result<String, Box<dyn Error>> {
     // we'll use some regex to remove https://hasura.io/docs/latest/ from parsed_query
@@ -59,8 +61,6 @@ async fn main() {
     let args: Vec<String> = std::env::args().collect();
     // today's date in MM-DD-YYYY format
     let today = Local::now().format("%m/%d/%Y").to_string();
-    // we'll "init" the clipboard
-    let mut clipboard = Clipboard::new().unwrap();
     // we'll create an empty string to hold the final config and redirects
     let mut config = String::new();
 
@@ -79,13 +79,65 @@ let date_header = r#"
     for arg in args.iter().skip(1) {
         match query_algolia(arg).await {
             Ok(url) => {
-                println!("{}", url);
-                config.push_str(&url);
+                println!("✅ -> {}", arg);
+                &config.push_str(&url);
             },
             Err(e) => println!("Error: {}", e),
         }
     }
 
-    // put it on the clipboard to fulfill my laziness
-    clipboard.set_text(config).unwrap();
+    let path = "../../hasura.io/redirects";
+    env::set_current_dir(path).unwrap();
+    let nginx_config = fs::read_to_string("redirects.conf").unwrap();
+    // println!("{}", nginx_config);
+
+    // git checkout master
+    let _output = Command::new("git")
+        .arg("checkout")
+        .arg("master")
+        .output()
+        .expect("failed to execute process");
+
+    // println!("{}", String::from_utf8_lossy(&output.stdout));
+
+    // git pull
+    let _output = Command::new("git")
+        .arg("pull")
+        .output()
+        .expect("failed to execute process");
+
+    // println!("{}", String::from_utf8_lossy(&output.stdout));
+
+    // git checkout -b rob/docs/docs-redirects-{{today}}
+    let _output = Command::new("git")
+        .arg("checkout")
+        .arg("-b")
+        .arg(format!("rob/docs/docs-redirects-{}", &today))
+        .output()
+        .expect("failed to execute process");
+
+    // println!("{}", String::from_utf8_lossy(&output.stdout));
+
+    // add two blank lines to the config variable
+    let final_config = format!("{}\n\n##################################################################\n\nlocation ~ ^/docs/latest/(.*)\\.html$ {{", &config);
+
+    // find this string in the nginx_config variable: location ~ ^/docs/latest/(.*)\.html$ {
+    // and insert config string in its place
+    let re = Regex::new(r#"#+\s+location ~ \^/docs/latest/\(\.\*\)\\\.html\$ \{"#).unwrap();
+    let nginx_config = re.replace_all(&nginx_config, &final_config);
+    // convert nginx_config to a string
+    let nginx_config = nginx_config.to_string();
+
+    // open redirects.conf and write nginx_config to it
+    fs::write("redirects.conf", nginx_config);
+
+    // open the file in code
+    let _output = Command::new("code")
+        .arg("-n")
+        .arg("redirects.conf")
+        .output()
+        .expect("failed to execute process");
+
+
+
 }
