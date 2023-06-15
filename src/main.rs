@@ -39,7 +39,7 @@ async fn query_algolia(parsed_query: &str) -> Result<String, Box<dyn Error>> {
 
     
 let nginx_config = r"
-# TEST ME: https://stage.hasura.io/{{old_path}}
+# TEST ME: https://stage.hasura.io/docs/latest/{{old_path}}
 location = /docs/latest/{{old_path}} {
     return 301 https://$$host/{{new_path}};
 }
