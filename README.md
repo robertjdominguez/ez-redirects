@@ -67,5 +67,9 @@ cargo run /docs/latest/nested/upserts /docs/latest/enterprise/prometheus /docs/l
 
 ## What's next?
 
-- [x] Copy the bulk set of redirects and comment to the clipboard
-- [ ] Or, go big and have it `cd` into the `hasura/hasura.io` repo, add the redirects, commit, push to **`stage`**.
+~~- [x] Copy the bulk set of redirects and comment to the clipboard~~
+
+☝️ This was eliminated in lieu of the option below. 10x Laziness.
+
+- [x] Or, go big and have it `cd` into the `hasura/hasura.io` repo, add the redirects, and let me take care of the rest
+      because god forbid I push something that doesn't work 😬.
