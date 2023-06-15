@@ -44,7 +44,6 @@ cargo run /docs/latest/nested/upserts /docs/latest/enterprise/prometheus /docs/l
 
 ✅ -> /docs/latest/nested/upserts
 ✅ -> /docs/latest/enterprise/prometheus
-✅ -> /docs/latest/restified/overview/+/
 ✅ -> /docs/latest/queries/arguments
 ```
 
