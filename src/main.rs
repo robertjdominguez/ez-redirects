@@ -90,6 +90,21 @@ let date_header = r#"
     env::set_current_dir(path).unwrap();
     let nginx_config = fs::read_to_string("redirects.conf").unwrap();
 
+    // delete the local branches of release-stage and release-prod
+    let _output = Command::new("git")
+        .arg("branch")
+        .arg("-D")
+        .arg("release-stage")
+        .output()
+        .expect("failed to execute process");
+
+    let _output = Command::new("git")
+        .arg("branch")
+        .arg("-D")
+        .arg("release-prod")
+        .output()
+        .expect("failed to execute process");
+
     // get master
     let _output = Command::new("git")
         .arg("checkout")
