@@ -6,52 +6,91 @@ use std::process::Command;
 use chrono::Local;
 
 async fn query_algolia(parsed_query: &str) -> Result<String, Box<dyn Error>> {
-    // we'll use some regex to remove https://hasura.io/docs/latest/ from parsed_query
+    // Define nginx config templates
+    let nginx_config_latest_template = r"
+# TEST ME: https://stage.hasura.io/docs/latest/{{old_path}}
+location = /docs/latest/{{old_path}} {
+    return 301 https://$host/{{new_path}};
+}
+";
+
+    let nginx_config_3_0_template = r"
+# TEST ME: https://stage.hasura.io/docs/3.0/{{old_path}}
+location = /docs/3.0/{{old_path}} {
+    return 301 https://$host/docs/3.0/<REPLACE_WITH_NEW_PATH>;
+}
+";
+
+    // Check if the path contains /docs/3.0 and skip Algolia
+    if parsed_query.contains("/docs/3.0") {
+        let nginx_config = nginx_config_3_0_template
+            .replace("{{old_path}}", &parsed_query["/docs/3.0/".len()..]);
+        return Ok(nginx_config);
+    }
+
+    // Continue with Algolia processing for /docs/latest
+    // Regex to remove https://hasura.io/docs/latest/ from parsed_query
     let re = Regex::new(r#"/docs/latest/"#).unwrap();
-    let parsed_query = re.replace_all(parsed_query, "");
+    let parsed_query_clean = re.replace_all(parsed_query, "");
 
-    // then, we'll take the parsed_query and break it into a nice urlEncoded format
-    let sent_parsed_query = parsed_query.replace("/", "%20")
-    .replace("-", "%20")
-    .replace("#", "%20");
+    // Then, we'll take the parsed_query and break it into a nice urlEncoded format
+    let sent_parsed_query = url_encode(&parsed_query_clean);
 
-    // we'll make the actual request
-    let query: String = format!("{{ \"params\": \"query={}\" }}", sent_parsed_query);
+    // Make the actual request to Algolia
+    let resp = make_algolia_request(&sent_parsed_query).await?;
+
+    // From body, get hits[0].url which is the meat of the json we want
+    let url = extract_url_from_algolia_response(&resp)?;
+
+    // Create nginx config for /docs/latest
+    let nginx_config = nginx_config_latest_template
+        .replace("{{old_path}}", &parsed_query_clean)
+        .replace("{{new_path}}", &url);
+
+    Ok(nginx_config)
+}
+
+// Helper function to URL encode the parsed query
+fn url_encode(parsed_query: &str) -> String {
+    parsed_query.replace("/", "%20")
+        .replace("-", "%20")
+        .replace("#", "%20")
+}
+
+// Helper function to make a request to Algolia
+async fn make_algolia_request(query: &str) -> Result<String, Box<dyn Error>> {
+    let algolia_query = format!("{{ \"params\": \"query={}\" }}", query);
     let resp = reqwest::Client::new()
         .post("https://NS6GBGYACO-dsn.algolia.net/1/indexes/hasura-graphql/query")
         .header("X-Algolia-API-Key", "8f0f11e3241b59574c5dd32af09acdc8")
         .header("X-Algolia-Application-Id", "NS6GBGYACO")
-        .body(query);
-    let resp = resp.send().await?;
+        .body(algolia_query)
+        .send().await?;
+
     let body = resp.text().await?;
-
-    // from body, get hits[0].url which is the meat of the json we want
-    let re = Regex::new(r#""url":"([^"]*)""#).unwrap();
-    let url = re.captures(&body).unwrap().get(1).unwrap().as_str();
-
-    // strip the url of https://hasura.io/ because the redirect doesn't want it
-    let re = Regex::new(r#"https://hasura.io/"#).unwrap();
-    let url = re.replace_all(url, "");
-
-    // if url has an anchor tag in it, remove the final / to make sure we render the correct part of the page
-    let re = Regex::new(r#"\/$"#).unwrap();
-    let url = re.replace_all(&url, "");
-
-    
-let nginx_config = r"
-# TEST ME: https://stage.hasura.io/docs/latest/{{old_path}}
-location = /docs/latest/{{old_path}} {
-    return 301 https://$$host/{{new_path}};
+    Ok(body)
 }
-";
 
-    let config = nginx_config
-        .replace("{{old_path}}", &parsed_query.to_string())
-        .replace("{{new_path}}", &url.to_string());
+// Helper function to extract URL from Algolia response
+fn extract_url_from_algolia_response(response: &str) -> Result<String, Box<dyn Error>> {
+    let re = Regex::new(r#""url":"([^"]*)""#).unwrap();
+    let url_match = re.captures(response)
+        .ok_or("URL not found in Algolia response")?
+        .get(1)
+        .ok_or("URL capture group not found")?
+        .as_str();
 
-    Ok(config.to_string())
+    // Strip the url of https://hasura.io/ because the redirect doesn't want it
+    let url = url_match.replace("https://hasura.io/", "");
 
+    // If url has an anchor tag in it, remove the final / to make sure we render the correct part of the page
+    let url = if url.ends_with('/') {
+        url[..url.len() - 1].to_string()
+    } else {
+        url
+    };
 
+    Ok(url)
 }
 
 #[tokio::main]
@@ -86,24 +125,9 @@ let date_header = r#"
         }
     }
 
-    let path = "../../hasura.io/redirects";
+    let path = "../../hasura.io/redirects/paths";
     env::set_current_dir(path).unwrap();
-    let nginx_config = fs::read_to_string("redirects.conf").unwrap();
-
-    // delete the local branches of release-stage and release-prod
-    let _output = Command::new("git")
-        .arg("branch")
-        .arg("-D")
-        .arg("release-stage")
-        .output()
-        .expect("failed to execute process");
-
-    let _output = Command::new("git")
-        .arg("branch")
-        .arg("-D")
-        .arg("release-prod")
-        .output()
-        .expect("failed to execute process");
+    let nginx_config = fs::read_to_string("docs.conf").unwrap();
 
     // get master
     let _output = Command::new("git")
@@ -122,23 +146,29 @@ let date_header = r#"
     let _output = Command::new("git")
         .arg("checkout")
         .arg("-b")
-        .arg(format!("rob/docs/docs-redirects-{}", &today))
+        .arg(format!("rob/redirects/docs-{}", &today))
         .output()
         .expect("failed to execute process");
 
-    // add two blank lines to the config variable and re-include our target string
-    let final_config = format!("{}\n\n##################################################################\n\nlocation ~ ^/docs/latest/(.*)\\.html$ {{", &config);
+    // delete the local branches of release-stage and release-prod
+    let _output = Command::new("git")
+        .arg("branch")
+        .arg("-D")
+        .arg("release-stage")
+        .output()
+        .expect("failed to execute process");
 
-    // find this string in the nginx_config variable: location ~ ^/docs/latest/(.*)\.html$ {
-    // and insert config string in its place
-    let re = Regex::new(r#"#+\s+location ~ \^/docs/latest/\(\.\*\)\\\.html\$ \{"#).unwrap();
-    let redir_config = re.replace(&nginx_config, &final_config);
-    // convert nginx_config to a string
-    let redir_config = redir_config.to_string();
+    let _output = Command::new("git")
+        .arg("branch")
+        .arg("-D")
+        .arg("release-prod")
+        .output()
+        .expect("failed to execute process");
 
-    
-    // open redirects.conf and write nginx_config to it
-    let _ = fs::write("redirects.conf", redir_config).expect("Unable to write file");
+
+    // add config to the bottom of the file
+    let _ = fs::write("docs.conf", format!("{}\n{}", nginx_config, config)).expect("Unable to write file");
+
 
     // open the file in code
     let _output = Command::new("code")
